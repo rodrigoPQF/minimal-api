@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
-using minimal_api.Domain.DTOs;
 using minimal_api.Domain.Entities;
 using minimal_api.Infra.Database;
 using minimal_api.Infra.Interfaces;
@@ -18,7 +16,7 @@ public class VeiculoService : IVeiculoService
 
     public Veiculo AtualizaVeiculo(int id, Veiculo veiculo)
     {
-        _context.Veiculos.Update(new Veiculo { Id = id, Nome = veiculo.Nome, Ano = veiculo.Ano, Marca = veiculo.Marca });
+        _context.Veiculos.Update(veiculo);
         _context.SaveChanges();
         return veiculo;
     }
@@ -50,7 +48,7 @@ public class VeiculoService : IVeiculoService
     }
 
 
-    public List<Veiculo> TodosVeiculos(int page = 1, string? nome = null, string? marca = null)
+    public List<Veiculo> TodosVeiculos(int? page = 1, string? nome = null, string? marca = null)
     {
         var query = _context.Veiculos.AsQueryable();
 
@@ -60,7 +58,11 @@ public class VeiculoService : IVeiculoService
         }
 
         int itensPorPagina = 10;
-        query = query.Skip((page - 1) * itensPorPagina).Take(itensPorPagina);
+
+        if (page != null)
+        {
+            query = query.Skip(((int)page - 1) * itensPorPagina).Take(itensPorPagina);
+        }
 
         return [.. query];
     }
