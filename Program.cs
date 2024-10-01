@@ -1,5 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using minimal_api.Domain.DTOs;
 using minimal_api.Domain.Entities;
 using minimal_api.Domain.Enums;
@@ -10,6 +15,25 @@ using minimal_api.Infra.Interfaces;
 
 #region Builder
 var builder = WebApplication.CreateBuilder(args);
+
+var jwtSettings = builder.Configuration.GetSection("Jwt").ToString();
+if (string.IsNullOrEmpty(jwtSettings)) jwtSettings = "123456";
+
+builder.Services.AddAuthentication(option =>
+{
+  option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+  option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+  options.TokenValidationParameters = new TokenValidationParameters
+  {
+    ValidateLifetime = true,
+    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings))
+  };
+});
+
+builder.Services.AddAuthorization();
+
 
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVeiculoService, VeiculoService>();
@@ -33,13 +57,46 @@ app.MapGet("/", () => Results.Json(new Home())).WithTags("Home");
 #endregion
 
 #region Admin
+
+string GerarTokenJwt(Admin admin)
+{
+  if (string.IsNullOrEmpty(jwtSettings)) return string.Empty;
+
+  var security = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings));
+  var credentials = new SigningCredentials(security, SecurityAlgorithms.HmacSha256);
+
+  var claims = new List<Claim>(){
+    new("Email", admin.Email),
+    new("Pefil", admin.Perfil.ToString())
+  };
+
+
+  var token = new JwtSecurityToken(
+    claims: claims,
+    expires: DateTime.Now.AddDays(1),
+    signingCredentials: credentials
+  );
+
+  return new JwtSecurityTokenHandler().WriteToken(token);
+
+}
+
 app.MapPost("/admin/login", ([FromBody] LoginDTO logintDTO, IAdminService adminService) =>
 {
-  if (adminService.Login(logintDTO) != null)
-    return Results.Ok("Login efetuado com sucesso");
+  var adm = adminService.Login(logintDTO);
+  if (adm != null)
+  {
+    string token = GerarTokenJwt(adm);
+    return Results.Ok(new AdminLogado
+    {
+      Email = adm.Email,
+      Perfil = adm.Perfil,
+      Token = token
+    });
+  }
   else
     return Results.Unauthorized();
-}).WithTags("Admin");
+}).RequireAuthorization().WithTags("Admin");
 
 app.MapPost("/admin", ([FromBody] AdminDTO adminDTO, IAdminService adminService) =>
 {
@@ -180,6 +237,9 @@ app.MapDelete("/veiculo/{id}", ([FromRoute] int id, IVeiculoService veiculoServi
 #region App
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.Run();
 
