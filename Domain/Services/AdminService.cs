@@ -22,4 +22,11 @@ public class AdminService : IAdminService
 
         return admin;
     }
+
+    public Admin? Cadastrar(Admin admin)
+    {
+        _context.Admins.Add(admin);
+        _context.SaveChanges();
+        return admin;
+    }
 }

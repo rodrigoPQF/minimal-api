@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using minimal_api.Domain.DTOs;
 using minimal_api.Domain.Entities;
+using minimal_api.Domain.Enums;
 using minimal_api.Domain.Model.Views;
 using minimal_api.Domain.Services;
 using minimal_api.Infra.Database;
@@ -39,6 +40,41 @@ app.MapPost("/admin/login", ([FromBody] LoginDTO logintDTO, IAdminService adminS
   else
     return Results.Unauthorized();
 }).WithTags("Admin");
+
+app.MapPost("/admin", ([FromBody] AdminDTO adminDTO, IAdminService adminService) =>
+{
+
+  var validations = new ErrorsValidation { Messages = [] };
+
+  if (string.IsNullOrEmpty(adminDTO.Email))
+    validations.Messages.Add("Email inválido");
+  if (string.IsNullOrEmpty(adminDTO.Perfil.ToString()))
+    validations.Messages.Add("Perfil inválido");
+  if (string.IsNullOrEmpty(adminDTO.Senha))
+    validations.Messages.Add("Senha inválida");
+
+  if (validations.Messages?.Count > 0)
+  {
+    return Results.BadRequest(validations);
+  }
+
+  var admin = new Admin
+  {
+    Email = adminDTO.Email,
+    Perfil = adminDTO.Perfil.ToString(),
+    Senha = adminDTO.Senha
+  };
+  adminService.Cadastrar(admin);
+
+  var adms = new AdminModelView
+  {
+    Email = admin.Email,
+    Perfil = Enum.Parse<Perfil>(admin.Perfil, true),
+  };
+
+  return Results.Created($"/admin/{admin.Id}", adms);
+}).WithTags("Admin");
+
 #endregion
 
 #region Veiculos
