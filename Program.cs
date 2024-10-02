@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -95,7 +96,8 @@ string GerarTokenJwt(Admin admin)
 
   var claims = new List<Claim>(){
     new("Email", admin.Email),
-    new("Pefil", admin.Perfil.ToString())
+    new("Pefil", admin.Perfil.ToString()),
+    new (ClaimTypes.Role, admin.Perfil.ToString()),
   };
 
 
@@ -124,7 +126,10 @@ app.MapPost("/admin/login", ([FromBody] LoginDTO logintDTO, IAdminService adminS
   }
   else
     return Results.Unauthorized();
-}).RequireAuthorization().WithTags("Admin");
+})
+.RequireAuthorization()
+.RequireAuthorization(new AuthorizeAttribute { Roles = "admin" })
+.WithTags("Admin");
 
 app.MapPost("/admin", ([FromBody] AdminDTO adminDTO, IAdminService adminService) =>
 {
@@ -158,7 +163,10 @@ app.MapPost("/admin", ([FromBody] AdminDTO adminDTO, IAdminService adminService)
   };
 
   return Results.Created($"/admin/{admin.Id}", adms);
-}).WithTags("Admin");
+})
+.RequireAuthorization()
+.RequireAuthorization(new AuthorizeAttribute { Roles = "admin" })
+.WithTags("Admin");
 
 #endregion
 
